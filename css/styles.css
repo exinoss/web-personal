@@ -53,7 +53,8 @@ body.page {
   margin: 0;
   color: var(--ink);
   background: var(--paper);
-  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+    sans-serif;
   line-height: 1.55;
   text-rendering: optimizeLegibility;
 }
@@ -343,7 +344,8 @@ button:focus-visible {
   color: rgba(14, 15, 18, 0.72);
   display: grid;
   place-items: center;
-  transition: transform 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease,
+    border-color 160ms ease;
   position: relative;
 }
 
@@ -422,7 +424,8 @@ button:focus-visible {
   color: rgba(14, 15, 18, 0.9);
   font-size: 11px;
   letter-spacing: 1px;
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease,
+    border-color 160ms ease, color 160ms ease;
 }
 
 .pill:hover {
@@ -608,7 +611,8 @@ button:focus-visible {
   border: 1px solid rgba(14, 15, 18, 0.24);
   background: rgba(14, 15, 18, 0.05);
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease,
+    border-color 160ms ease;
 }
 
 .dot.is-active {
@@ -752,7 +756,8 @@ button:focus-visible {
   place-items: center;
   color: rgba(14, 15, 18, 0.7);
   position: relative;
-  transition: transform 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease,
+    border-color 160ms ease;
 }
 
 .social-mini:hover {
@@ -940,7 +945,8 @@ textarea:hover {
 
 body.calc {
   margin: 0;
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --bg-calc: #f0f2f5;
   --shell-bg: #ffffff;
   --btn-num-bg: #f5f7fa;
@@ -954,7 +960,7 @@ body.calc {
   --display-bg: #1a202c;
   --display-text: #ffffff;
   --display-sub: #a0aec0;
-  
+
   /* Dark mode override if system prefers or if we want dark calc by default inside the iframe context */
   background: transparent; /* Allows iframe transparency if needed, but we set a wrapper bg */
 }
@@ -965,7 +971,7 @@ body.calc .wrap {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: transparent; 
+  background: transparent;
 }
 
 body.calc .calc-shell {
@@ -978,7 +984,7 @@ body.calc .calc-shell {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  border: 1px solid rgba(0,0,0,0.04);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 body.calc .calc-header {
@@ -1002,7 +1008,7 @@ body.calc .calc-screen {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 body.calc .history {
@@ -1053,7 +1059,7 @@ body.calc .btn {
   align-items: center;
   justify-content: center;
   user-select: none;
-  box-shadow: 0 2px 0 rgba(0,0,0,0.03);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 body.calc .btn:active {
@@ -1107,7 +1113,7 @@ body.calc .btn.zero {
 @media (prefers-color-scheme: dark) {
   body.calc .calc-shell {
     background: #1a202c;
-    border-color: rgba(255,255,255,0.08);
+    border-color: rgba(255, 255, 255, 0.08);
   }
   body.calc .calc-header {
     color: #a0aec0;
@@ -1141,3 +1147,155 @@ body.calc .btn.zero {
   }
 }
 
+/* =====================================================
+   CALCULADORA INTEGRADA EN INDEX
+   ===================================================== */
+
+.calc-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.calc-container .calc-shell {
+  width: 100%;
+  max-width: 340px;
+  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  border: 1px solid rgba(14, 15, 18, 0.12);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+}
+
+.calc-container .calc-screen {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.calc-container .calc-history {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  min-height: 20px;
+  word-break: break-all;
+}
+
+.calc-container .calc-display {
+  font-size: 32px;
+  font-weight: 600;
+  color: #fff;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+.calc-container .calc-error {
+  background: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.calc-container .calc-keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.calc-container .calc-btn {
+  height: 56px;
+  border: none;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  font-family: inherit;
+}
+
+.calc-container .calc-btn:hover {
+  transform: translateY(-2px);
+}
+
+.calc-container .calc-btn:active {
+  transform: translateY(0);
+}
+
+.calc-container .calc-btn.num {
+  background: #fff;
+  color: #1a1a2e;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.calc-container .calc-btn.num:hover {
+  background: #f8f9fa;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.calc-container .calc-btn.action {
+  background: #6c757d;
+  color: #fff;
+}
+
+.calc-container .calc-btn.action:hover {
+  background: #5a6268;
+}
+
+.calc-container .calc-btn.op {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(28, 94, 255, 0.3);
+}
+
+.calc-container .calc-btn.op:hover {
+  box-shadow: 0 6px 20px rgba(28, 94, 255, 0.4);
+}
+
+.calc-container .calc-btn.eq {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(40, 167, 69, 0.3);
+}
+
+.calc-container .calc-btn.eq:hover {
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.calc-container .calc-btn.zero {
+  grid-column: span 2;
+}
+
+/* Dark mode para calculadora integrada */
+@media (prefers-color-scheme: dark) {
+  .calc-container .calc-shell {
+    background: linear-gradient(145deg, #1e2130, #171923);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .calc-container .calc-btn.num {
+    background: #2d3748;
+    color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .calc-container .calc-btn.num:hover {
+    background: #4a5568;
+  }
+
+  .calc-container .calc-btn.action {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+
+  .calc-container .calc-btn.action:hover {
+    background: #718096;
+  }
+}
