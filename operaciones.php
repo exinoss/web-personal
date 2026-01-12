@@ -3,357 +3,215 @@ $expr = $_POST["expr"] ?? "";
 $display = $_POST["display"] ?? "0";
 $error = "";
 
-function h($value)
-{
-  return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
+function h($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
 }
 
-function format_number($value)
-{
-  if (!is_finite($value)) {
-    return "Error";
-  }
-
-  $rounded = round($value, 12);
-  if (abs($rounded - round($rounded)) < 1e-12) {
-    return (string)(int)round($rounded);
-  }
-
-  $str = number_format($rounded, 12, ".", "");
-  $str = rtrim($str, "0");
-  $str = rtrim($str, ".");
-  if ($str === "-0") {
-    $str = "0";
-  }
-  return $str;
+function pretty_expr($expr) {
+    return strtr($expr, ["*" => "×", "/" => "÷"]);
 }
 
-function tokenize($expr)
-{
-  $tokens = [];
-  $len = strlen($expr);
-  $i = 0;
-  $prevWasOp = true;
+function evaluar_expresion($expr) {
+    $expr = str_replace([' ', "\t", "\n", "\r"], '', $expr);
+    if ($expr === "") return ["ok" => true, "valor" => 0];
 
-  while ($i < $len) {
-    $ch = $expr[$i];
-    if ($ch === " " || $ch === "\t" || $ch === "\n" || $ch === "\r") {
-      $i++;
-      continue;
+    if (!preg_match('/^[\d.+\-*\/]+$/', $expr)) {
+        return ["ok" => false, "error" => "Caracteres inválidos."];
     }
 
-    if (($ch >= "0" && $ch <= "9") || $ch === "." || ($ch === "-" && $prevWasOp)) {
-      $start = $i;
-      $i++;
-      $dotCount = ($ch === ".") ? 1 : 0;
+    // Tokenizar
+    preg_match_all('/(?:(?<=\d|\.)-)?\d+(?:\.\d+)?|[+\-*\/]/', $expr, $matches);
+    $tokens = $matches[0];
 
-      while ($i < $len) {
-        $c = $expr[$i];
-        if (($c >= "0" && $c <= "9")) {
-          $i++;
-          continue;
+    if (empty($tokens)) return ["ok" => false, "error" => "Expresión vacía."];
+
+    // Shunting Yard
+    $colaSalida = [];
+    $pilaOperadores = [];
+    $precedencia = ['+' => 1, '-' => 1, '*' => 2, '/' => 2];
+
+    foreach ($tokens as $token) {
+        if (is_numeric($token)) {
+            $colaSalida[] = (float)$token;
+        } elseif (isset($precedencia[$token])) {
+            while (!empty($pilaOperadores)) {
+                $top = end($pilaOperadores);
+                if (isset($precedencia[$top]) && $precedencia[$top] >= $precedencia[$token]) {
+                    $colaSalida[] = array_pop($pilaOperadores);
+                } else {
+                    break;
+                }
+            }
+            $pilaOperadores[] = $token;
         }
-        if ($c === ".") {
-          $dotCount++;
-          if ($dotCount > 1) {
-            return null;
-          }
-          $i++;
-          continue;
+    }
+    
+    while (!empty($pilaOperadores)) {
+        $colaSalida[] = array_pop($pilaOperadores);
+    }
+
+    // Evaluar RPN
+    $pilaEvaluacion = [];
+    foreach ($colaSalida as $token) {
+        if (is_numeric($token)) {
+            $pilaEvaluacion[] = $token;
+        } else {
+            if (count($pilaEvaluacion) < 2) return ["ok" => false, "error" => "Operación incompleta."];
+            $b = array_pop($pilaEvaluacion);
+            $a = array_pop($pilaEvaluacion);
+            
+            switch ($token) {
+                case '+': $pilaEvaluacion[] = $a + $b; break;
+                case '-': $pilaEvaluacion[] = $a - $b; break;
+                case '*': $pilaEvaluacion[] = $a * $b; break;
+                case '/': 
+                    if ($b == 0) return ["ok" => false, "error" => "División por cero."];
+                    $pilaEvaluacion[] = $a / $b; 
+                    break;
+            }
         }
-        break;
-      }
-
-      $numStr = substr($expr, $start, $i - $start);
-      if ($numStr === "-" || $numStr === "." || $numStr === "-.") {
-        return null;
-      }
-      $num = filter_var($numStr, FILTER_VALIDATE_FLOAT);
-      if ($num === false) {
-        return null;
-      }
-      $tokens[] = ["type" => "num", "value" => (float)$num];
-      $prevWasOp = false;
-      continue;
     }
 
-    if ($ch === "+" || $ch === "-" || $ch === "*" || $ch === "/") {
-      $tokens[] = ["type" => "op", "value" => $ch];
-      $i++;
-      $prevWasOp = true;
-      continue;
-    }
+    if (count($pilaEvaluacion) !== 1) return ["ok" => false, "error" => "Error de sintaxis."];
 
-    return null;
-  }
-}
-
-function eval_expr($expr)
-{
-  $tokens = tokenize($expr);
-  if ($tokens === null || count($tokens) === 0) {
-    return ["ok" => false, "error" => "Expresión inválida."];
-  }
-
-  if ($tokens[count($tokens) - 1]["type"] === "op") {
-    return ["ok" => false, "error" => "Completa la operación."];
-  }
-
-  $prec = ["+" => 1, "-" => 1, "*" => 2, "/" => 2];
-  $out = [];
-  $ops = [];
-
-  foreach ($tokens as $t) {
-    if ($t["type"] === "num") {
-      $out[] = $t;
-      continue;
-    }
-
-    $op = $t["value"];
-    while (count($ops) > 0) {
-      $top = $ops[count($ops) - 1];
-      if ($prec[$top] >= $prec[$op]) {
-        $out[] = ["type" => "op", "value" => array_pop($ops)];
-        continue;
-      }
-      break;
-    }
-    $ops[] = $op;
-  }
-
-  while (count($ops) > 0) {
-    $out[] = ["type" => "op", "value" => array_pop($ops)];
-  }
-
-  $stack = [];
-  foreach ($out as $t) {
-    if ($t["type"] === "num") {
-      $stack[] = $t["value"];
-      continue;
-    }
-    if (count($stack) < 2) {
-      return ["ok" => false, "error" => "Expresión inválida."];
-    }
-    $b = array_pop($stack);
-    $a = array_pop($stack);
-    switch ($t["value"]) {
-      case "+":
-        $stack[] = $a + $b;
-        break;
-      case "-":
-        $stack[] = $a - $b;
-        break;
-      case "*":
-        $stack[] = $a * $b;
-        break;
-      case "/":
-        if ((float)$b === 0.0) {
-          return ["ok" => false, "error" => "No se puede dividir para cero."];
-        }
-        $stack[] = $a / $b;
-        break;
-    }
-  }
-
-  if (count($stack) !== 1) {
-    return ["ok" => false, "error" => "Expresión inválida."];
-  }
-
-  return ["ok" => true, "value" => (float)$stack[0]];
-}
-
-function last_number_span($expr)
-{
-  if ($expr === "") {
-    return null;
-  }
-
-  if (preg_match('/(-?\d+(?:\.\d+)?|-?\.\d+)$/', $expr, $m, PREG_OFFSET_CAPTURE)) {
-    $match = $m[0][0];
-    $offset = $m[0][1];
-    return ["start" => $offset, "len" => strlen($match), "value" => $match];
-  }
-  return null;
-}
-
-function pretty_expr($expr)
-{
-  return strtr($expr, ["*" => "×", "/" => "÷"]);
+    return ["ok" => true, "valor" => $pilaEvaluacion[0]];
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-  $key = $_POST["key"] ?? null;
-  if ($key !== null) {
-    $maxLen = 60;
-    $ops = ["+", "-", "*", "/"];
-    $isOp = in_array($key, ["+", "-", "×", "÷"], true);
-    $mappedKey = $key;
-    if ($key === "×") {
-      $mappedKey = "*";
-    } elseif ($key === "÷") {
-      $mappedKey = "/";
-    }
+    $tecla = $_POST["key"] ?? null;
+    
+    if ($tecla !== null) {
+        $limiteCaracteres = 30;
+        $mapaTeclas = ["×" => "*", "÷" => "/"];
+        $teclaInterna = $mapaTeclas[$tecla] ?? $tecla;
 
-    if ($key === "C") {
-      $expr = "";
-      $display = "0";
-      $error = "";
-    } elseif ($key === "⌫") {
-      if ($expr !== "") {
-        $expr = substr($expr, 0, -1);
-      }
-      $display = $expr === "" ? "0" : $display;
-      $error = "";
-    } elseif ($key === "=") {
-      if ($expr === "") {
-        $display = "0";
-        $error = "";
-      } else {
-        $res = eval_expr($expr);
-        if (!$res["ok"]) {
-          $error = $res["error"];
-        } else {
-          $display = format_number($res["value"]);
-          $expr = $display;
-          $error = "";
-        }
-      }
-    } elseif ($key === "±") {
-      $span = last_number_span($expr);
-      if ($span !== null) {
-        $numStr = $span["value"];
-        if (str_starts_with($numStr, "-")) {
-          $new = substr($numStr, 1);
-        } else {
-          $new = "-" . $numStr;
-        }
-        $expr = substr($expr, 0, $span["start"]) . $new;
-        $display = $new;
-        $error = "";
-      } elseif ($expr === "") {
-        $expr = "-";
-        $display = "-";
-        $error = "";
-      }
-    } elseif ($key === "%") {
-      $span = last_number_span($expr);
-      if ($span !== null) {
-        $num = filter_var($span["value"], FILTER_VALIDATE_FLOAT);
-        if ($num !== false) {
-          $new = format_number(((float)$num) / 100.0);
-          $expr = substr($expr, 0, $span["start"]) . $new;
-          $display = $new;
-          $error = "";
-        }
-      }
-    } elseif ($isOp) {
-      $opChar = $mappedKey;
-      if ($expr === "" && $opChar === "-") {
-        $expr = "-";
-        $display = "-";
-        $error = "";
-      } elseif ($expr !== "") {
-        $last = substr($expr, -1);
-        if (in_array($last, $ops, true)) {
-          $expr = substr($expr, 0, -1) . $opChar;
-        } else {
-          if (strlen($expr) < $maxLen) {
-            $expr .= $opChar;
-          }
-        }
-        $display = $display === "0" ? "0" : $display;
-        $error = "";
-      }
-    } else {
-      if (preg_match('/^[0-9]$/', $key) === 1 || $key === ".") {
-        $last = $expr === "" ? "" : substr($expr, -1);
-        if ($key === "." && last_number_span($expr) !== null) {
-          $span = last_number_span($expr);
-          if ($span !== null && str_contains($span["value"], ".")) {
-            $key = "";
-          }
-        }
-
-        if ($key !== "") {
-          if ($expr === "" && $key === ".") {
-            $expr = "0.";
-          } elseif ($expr === "0" && $key !== ".") {
-            $expr = $key;
-          } elseif (in_array($last, ["+" , "-" , "*" , "/"], true) && $key === ".") {
-            if (strlen($expr) < $maxLen) {
-              $expr .= "0.";
+        if ($tecla === "C") {
+            $expr = "";
+            $display = "0";
+            $error = "";
+        } elseif ($tecla === "±") {
+            if ($expr === "") {
+                $expr = "-";
+                $display = "-";
+            } else {
+                if (preg_match('/(-?[\d.]+)$/', $expr, $m, PREG_OFFSET_CAPTURE)) {
+                    $num = $m[0][0];
+                    $offset = $m[0][1];
+                    $nuevoNum = (str_starts_with($num, "-")) ? substr($num, 1) : "-" . $num;
+                    $expr = substr($expr, 0, $offset) . $nuevoNum;
+                    $display = $expr;
+                }
             }
-          } else {
-            if (strlen($expr) < $maxLen) {
-              $expr .= $key;
+        } elseif ($tecla === "%") {
+            $expr .= "/100";
+            $display = $expr;
+        } elseif ($tecla === "=") {
+            if ($expr === "") {
+                $display = "0";
+            } else {
+                $resultado = evaluar_expresion($expr);
+                if ($resultado["ok"]) {
+                    $display = (string)(float)$resultado["valor"];
+                    $expr = $display;
+                } else {
+                    $error = $resultado["error"];
+                }
             }
-          }
-
-          $span = last_number_span($expr);
-          $display = $span ? $span["value"] : $expr;
-          $error = "";
+        } elseif ($tecla === "⌫") {
+             if ($expr !== "") $expr = substr($expr, 0, -1);
+             $display = $expr === "" ? "0" : $expr;
+        } else {
+            $esOperador = in_array($teclaInterna, ["+", "-", "*", "/"]);
+            
+            if ($esOperador) {
+                if ($expr === "" && $teclaInterna !== "-") {
+                    // Ignorar
+                } else {
+                    $ultimo = substr($expr, -1);
+                    if (in_array($ultimo, ["+", "-", "*", "/"])) {
+                        $expr = substr($expr, 0, -1) . $teclaInterna;
+                    } else {
+                        if (strlen($expr) < $limiteCaracteres) $expr .= $teclaInterna;
+                    }
+                }
+            } else {
+                if (strlen($expr) < $limiteCaracteres) {
+                    if ($expr === "0" && $teclaInterna !== ".") {
+                        $expr = $teclaInterna;
+                    } else {
+                        if ($teclaInterna === ".") {
+                            if (preg_match('/[\d.]+$/', $expr, $m)) {
+                                if (!str_contains($m[0], ".")) $expr .= ".";
+                            } elseif ($expr === "" || in_array(substr($expr, -1), ["+", "-", "*", "/"])) {
+                                $expr .= "0.";
+                            }
+                        } else {
+                            $expr .= $teclaInterna;
+                        }
+                    }
+                }
+            }
+            $display = $expr;
         }
-      }
     }
-  }
 }
 ?>
 <!doctype html>
 <html lang="es">
-  <head>
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Calculadora PHP</title>
     <link rel="stylesheet" href="./css/styles.css" />
-  </head>
-  <body class="calc">
+</head>
+<body class="calc">
     <div class="wrap">
-      <div class="calc-shell">
-        <div class="calc-top">
-          <div class="calc-title">
-            <div>Calculadora</div>
-            <div>PHP</div>
-          </div>
-          <div class="calc-display" aria-live="polite">
-            <div class="expr"><?= h(pretty_expr($expr)) ?></div>
-            <div class="value"><?= h($display) ?></div>
-          </div>
-          <?php if ($error !== ""): ?>
-            <div class="calc-error" role="alert"><?= h($error) ?></div>
-          <?php endif; ?>
+        <div class="calc-shell">
+            <div class="calc-header">
+                <div class="brand">PHP Calc</div>
+                <div class="mode">Estándar</div>
+            </div>
+            
+            <div class="calc-screen" aria-live="polite">
+                <div class="history"><?= h(pretty_expr($expr)) ?></div>
+                <div class="current"><?= h($display === "" ? "0" : pretty_expr($display)) ?></div>
+            </div>
+
+            <?php if ($error !== ""): ?>
+                <div class="calc-alert" role="alert"><?= h($error) ?></div>
+            <?php endif; ?>
+
+            <form method="post" action="">
+                <input type="hidden" name="expr" value="<?= h($expr) ?>" />
+                <input type="hidden" name="display" value="<?= h($display) ?>" />
+
+                <div class="keypad" role="group" aria-label="Teclado numérico">
+                    <button class="btn action" type="submit" name="key" value="C">C</button>
+                    <button class="btn action" type="submit" name="key" value="±">±</button>
+                    <button class="btn action" type="submit" name="key" value="%">%</button>
+                    <button class="btn op" type="submit" name="key" value="÷">÷</button>
+
+                    <button class="btn num" type="submit" name="key" value="7">7</button>
+                    <button class="btn num" type="submit" name="key" value="8">8</button>
+                    <button class="btn num" type="submit" name="key" value="9">9</button>
+                    <button class="btn op" type="submit" name="key" value="×">×</button>
+
+                    <button class="btn num" type="submit" name="key" value="4">4</button>
+                    <button class="btn num" type="submit" name="key" value="5">5</button>
+                    <button class="btn num" type="submit" name="key" value="6">6</button>
+                    <button class="btn op" type="submit" name="key" value="-">−</button>
+
+                    <button class="btn num" type="submit" name="key" value="1">1</button>
+                    <button class="btn num" type="submit" name="key" value="2">2</button>
+                    <button class="btn num" type="submit" name="key" value="3">3</button>
+                    <button class="btn op" type="submit" name="key" value="+">+</button>
+
+                    <button class="btn num zero" type="submit" name="key" value="0">0</button>
+                    <button class="btn num" type="submit" name="key" value=".">.</button>
+                    <button class="btn eq" type="submit" name="key" value="=">=</button>
+                </div>
+            </form>
         </div>
-
-        <form method="post" action="">
-          <input type="hidden" name="expr" value="<?= h($expr) ?>" />
-          <input type="hidden" name="display" value="<?= h($display) ?>" />
-
-          <div class="keys" role="group" aria-label="Teclado de calculadora">
-            <button class="key fn" type="submit" name="key" value="C">C</button>
-            <button class="key fn" type="submit" name="key" value="±">±</button>
-            <button class="key fn" type="submit" name="key" value="%">%</button>
-            <button class="key op" type="submit" name="key" value="÷">÷</button>
-
-            <button class="key" type="submit" name="key" value="7">7</button>
-            <button class="key" type="submit" name="key" value="8">8</button>
-            <button class="key" type="submit" name="key" value="9">9</button>
-            <button class="key op" type="submit" name="key" value="×">×</button>
-
-            <button class="key" type="submit" name="key" value="4">4</button>
-            <button class="key" type="submit" name="key" value="5">5</button>
-            <button class="key" type="submit" name="key" value="6">6</button>
-            <button class="key op" type="submit" name="key" value="-">-</button>
-
-            <button class="key" type="submit" name="key" value="1">1</button>
-            <button class="key" type="submit" name="key" value="2">2</button>
-            <button class="key" type="submit" name="key" value="3">3</button>
-            <button class="key op" type="submit" name="key" value="+">+</button>
-
-            <button class="key zero" type="submit" name="key" value="0">0</button>
-            <button class="key" type="submit" name="key" value=".">.</button>
-            <button class="key eq" type="submit" name="key" value="=">=</button>
-          </div>
-        </form>
-      </div>
     </div>
-  </body>
+</body>
 </html>
